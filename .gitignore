@@ -1,0 +1,8 @@
+venv_fuxi
+__pycache__
+comparison_results.csv
+output/*
+data/*
+model/*
+*.local.*
+compare/*
