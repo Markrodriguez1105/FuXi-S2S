@@ -13,8 +13,9 @@ import numpy as np
 
 # PAGASA station locations (add more as needed)
 STATIONS = {
-    'CBSUA Pili': {'lat': 13.58, 'lon': 123.28},  # Camarines Sur
+    'Pili, Camarines Sur': {'lat': 13.58, 'lon': 123.28},
     'Naga City': {'lat': 13.62, 'lon': 123.19},
+    'Pacol, Naga City': {'lat': 13.657096, 'lon': 123.224535},
 }
 
 # Channel name mappings for FuXi-S2S output

@@ -196,6 +196,18 @@ python visualize_results.py
 5. Error by lead time (1-42 days)
 6. Error distribution histograms
 
+---
+
+## Store Forecasts to MongoDB
+
+Persist station-level forecasts to MongoDB for downstream applications.
+
+```powershell
+python store_forecasts_to_mongo.py --fuxi_output output --init_date 20200602 --station "CBSUA Pili" --members 11
+```
+
+See [MONGODB_SETUP_AND_STORAGE_GUIDE.md](MONGODB_SETUP_AND_STORAGE_GUIDE.md) for setup and schema details.
+
 ## Wind Speed and Direction
 
 The model predicts 10m wind components (10u, 10v) which are automatically converted to:

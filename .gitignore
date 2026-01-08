@@ -6,3 +6,7 @@ data/*
 model/*
 *.local.*
 compare/*
+.env
+*.cdsapirc
+*.pkl
+bias_correction_params.pkl

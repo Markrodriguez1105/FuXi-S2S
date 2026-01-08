@@ -37,11 +37,15 @@ FuXi-S2S/
 │   ├── data.py              # Data processing
 │   ├── inference.py         # Inference logic
 │   └── compare.py           # PAGASA comparison
+│   └── mongo_store.py        # MongoDB persistence helpers
 ├── venv_fuxi/               # Virtual environment
 ├── inference.py             # Main inference script
 ├── compare_pagasa.py        # Comparison wrapper
 ├── analyze_results.py       # Statistical analysis
 ├── visualize_results.py     # Visualization script
+├── store_forecasts_to_mongo.py  # Store station forecasts to MongoDB
+├── MONGODB_SETUP_AND_STORAGE_GUIDE.md  # MongoDB setup + schema
+├── .env                     # Local env vars (e.g., MONGO_DB_URI)
 ├── run_full_process.ps1     # Automated workflow (Windows)
 ├── run_full_process.sh      # Automated workflow (Linux/Mac)
 └── data_util.py             # Legacy data utilities
@@ -257,6 +261,24 @@ python compare_pagasa.py `
 ```
 
 ---
+
+## Store Forecasts to MongoDB
+
+Persist station-level forecasts to MongoDB for downstream use (dashboards, APIs).
+
+```powershell
+python store_forecasts_to_mongo.py --fuxi_output output --init_date 20200602 --station "CBSUA Pili" --members 11
+```
+
+| Option          | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `--fuxi_output` | Path to output directory (default: `output`)   |
+| `--init_date`   | Initialization date `YYYYMMDD`                 |
+| `--station`     | Station name from `utils/compare.py::STATIONS` |
+| `--members`     | Number of ensemble members                     |
+| `--version`     | Optional version suffix for the run            |
+
+See [MONGODB_SETUP_AND_STORAGE_GUIDE.md](MONGODB_SETUP_AND_STORAGE_GUIDE.md) for full details.
 
 ## Available Stations
 
