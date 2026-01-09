@@ -1,0 +1,167 @@
+# ==============================================================================
+# FuXi-S2S Docker Compose Configuration
+# ==============================================================================
+# Provides complete environment for running FuXi-S2S weather forecasts
+# Includes: GPU-enabled inference container + MongoDB for data storage
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # FuXi-S2S Inference Service
+  # ============================================================================
+  fuxi-s2s:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fuxi-s2s:latest
+    container_name: fuxi-s2s
+    
+    # GPU access (requires nvidia-docker runtime)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # Environment variables
+    environment:
+      # CDS API credentials for ERA5 data download
+      - CDS_API_URL=${CDS_API_URL:-https://cds.climate.copernicus.eu/api}
+      - CDS_API_KEY=${CDS_API_KEY:-}
+      
+      # MongoDB connection
+      # store_forecasts_to_mongo.py reads MONGO_DB_URI
+      - MONGO_DB_URI=${MONGO_DB_URI}
+      # Keep compatibility with any scripts that read MONGO_URI
+      - MONGO_DB=${MONGO_DB}
+      
+      # CUDA settings
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      
+      # Python settings
+      - PYTHONUNBUFFERED=1
+    
+    # Volume mounts for data persistence
+    volumes:
+      # Model files (read-only)
+      - ./model:/app/fuxi-s2s/model:ro
+      
+      # Input data directory
+      - ./data:/app/fuxi-s2s/data
+      
+      # Output directory (forecasts)
+      - ./output:/app/fuxi-s2s/output
+      
+      # CDS API credentials file (optional, if you prefer file-based auth)
+      - ./.cdsapirc:/root/.cdsapirc:ro
+      
+      # Comparison results
+      - ./compare:/app/fuxi-s2s/compare
+    
+    # DNS configuration for external network access
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    # Network configuration
+    networks:
+      - fuxi-network
+    
+    # Dependencies
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Default command (override with docker-compose run)
+    command: ["--help"]
+
+  # ============================================================================
+  # MongoDB Service for Forecast Storage
+  # ============================================================================
+  mongodb:
+    image: mongodb/mongodb-community-server:latest
+    container_name: mongodb
+    
+    # Port mapping
+    ports:
+      - "27017:27017"
+    
+    # Environment variables
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
+    
+    # Data persistence
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    
+    # Network configuration
+    networks:
+      - fuxi-network
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    
+    # Restart policy
+    restart: unless-stopped
+
+  # ============================================================================
+  # Mongo Express Web UI (Optional - for development)
+  # ============================================================================
+  # mongo-express:
+  #   image: mongo-express:latest
+  #   container_name: fuxi-mongo-express
+    
+  #   # Port mapping
+  #   ports:
+  #     - "8081:8081"
+    
+  #   # Environment variables
+  #   environment:
+  #     - ME_CONFIG_MONGODB_SERVER=mongodb
+  #     - ME_CONFIG_MONGODB_PORT=27017
+  #     - ME_CONFIG_BASICAUTH_USERNAME=admin
+  #     - ME_CONFIG_BASICAUTH_PASSWORD=fuxi2024
+    
+  #   # Network configuration
+  #   networks:
+  #     - fuxi-network
+    
+  #   # Dependencies
+  #   depends_on:
+  #     mongodb:
+  #       condition: service_healthy
+    
+  #   # Restart policy
+  #   restart: unless-stopped
+    
+  #   # Profile (only start when explicitly requested)
+  #   profiles:
+  #     - dev
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  fuxi-network:
+    driver: bridge
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  mongodb_data:
+    driver: local
