@@ -1,0 +1,7 @@
+# Weather service requirements
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pymongo>=4.5.0
+pydantic>=2.0.0
+python-multipart
+httpx
