@@ -27,8 +27,8 @@ services:
 
   fuxis2s_model:
     build:
-      context: ./fuxis2s_model
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: fuxis2s_model/Dockerfile
     container_name: fuxi-model-service
     restart: unless-stopped
     ports:

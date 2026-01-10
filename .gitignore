@@ -1,4 +1,6 @@
-venv_fuxi
+.venv_fuxi
+.train_fuxi_venv
+.venv
 __pycache__
 comparison_results.csv
 output/*

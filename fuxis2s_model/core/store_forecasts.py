@@ -12,7 +12,7 @@ from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
 
-from config import settings
+from fuxis2s_model.config import settings
 
 
 def _utc_now() -> datetime:
@@ -147,33 +147,44 @@ async def store_forecast_data(
     
     def _store():
         from .compare import load_fuxi_output, extract_station_forecast, STATIONS
-        
+        import os
+        # BiasCorrector import
+        corrector = None
+        if apply_bias_correction:
+            try:
+                from train_fuxi.bias_correction import BiasCorrector
+                corrector = BiasCorrector.load(os.path.join(os.path.dirname(__file__), '../../train_fuxi/artifacts/bias_correction_params.pkl'))
+                print("Loaded bias correction model.")
+            except Exception as e:
+                print(f"Warning: Could not load bias correction model: {e}")
+                corrector = None
+
         # Get station info
         station_info = STATIONS.get(station, {"lat": 13.58, "lon": 123.28})
         station_lat = station_info.get("lat", 13.58)
         station_lon = station_info.get("lon", 123.28)
-        
+
         # Load forecast data
         output_dir = settings.output_dir
         year = init_date[:4]
         run_dir = os.path.join(output_dir, year, init_date)
-        
+
         if not os.path.exists(run_dir):
             raise FileNotFoundError(f"Forecast output not found: {run_dir}")
-        
+
         # Connect to MongoDB
         client = get_mongo_client()
         db = client[settings.mongo_db]
-        
+
         run_id = _build_run_id(
             init_date, station, members,
             use_ensemble=True,
             apply_bias_correction=apply_bias_correction
         )
-        
+
         docs = []
         count = 0
-        
+
         # Load and store each member's data
         all_member_dfs = []
         for member in range(members):
@@ -181,51 +192,64 @@ async def store_forecast_data(
                 ds = load_fuxi_output(output_dir, init_date, member)
                 df = extract_station_forecast(ds, station_lat, station_lon, init_date)
                 df["member"] = member
+                # Apply bias correction if requested and model is loaded
+                if apply_bias_correction and corrector is not None:
+                    df = corrector.transform(df)
+                    bias_flag = True
+                else:
+                    bias_flag = False
                 all_member_dfs.append(df)
-                
+
                 for _, row in df.iterrows():
                     doc = _df_row_to_doc(
                         row, run_id, station, station_lat, station_lon,
-                        member=member, is_ensemble_mean=False
+                        member=member, is_ensemble_mean=False, bias_corrected=bias_flag
                     )
                     docs.append(doc)
                     count += 1
-                    
+
             except Exception as e:
                 print(f"Warning: Failed to process member {member}: {e}")
-        
+
         # Insert member documents
         if docs:
             db["fuxi_member_forecasts"].insert_many(docs)
-        
+
         # Calculate and store ensemble mean (final forecast)
         final_docs = []
         final_count = 0
         if all_member_dfs:
             combined = pd.concat(all_member_dfs, ignore_index=True)
-            
+
             # Numeric columns to average
             numeric_cols = ["tp", "t2m", "d2m", "msl", "10u", "10v", "wind_speed", "wind_direction"]
             available_cols = [c for c in numeric_cols if c in combined.columns]
-            
+
             # Group by lead_time_days and compute mean
             group_cols = ["lead_time_days", "valid_time", "init_time"]
             ensemble_mean = combined.groupby(group_cols, as_index=False)[available_cols].mean()
-            
+
+            # Apply bias correction to ensemble mean if requested
+            if apply_bias_correction and corrector is not None:
+                ensemble_mean = corrector.transform(ensemble_mean)
+                bias_flag = True
+            else:
+                bias_flag = False
+
             for _, row in ensemble_mean.iterrows():
                 doc = _df_row_to_doc(
                     row, run_id, station, station_lat, station_lon,
-                    member=None, is_ensemble_mean=True
+                    member=None, is_ensemble_mean=True, bias_corrected=bias_flag
                 )
                 final_docs.append(doc)
                 final_count += 1
-            
+
             if final_docs:
                 db["fuxi_final_forecasts"].insert_many(final_docs)
                 print(f"✅ Stored {final_count} ensemble mean documents to fuxi_final_forecasts")
-        
+
         client.close()
-        
+
         return {"count": count, "final_count": final_count, "run_id": run_id}
     
     loop = asyncio.get_event_loop()

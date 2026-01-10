@@ -6,7 +6,7 @@ Functions for comparing FuXi-S2S forecasts with observations.
 
 import os
 import glob
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, cast
 
 import pandas as pd
 import xarray as xr
@@ -61,9 +61,27 @@ def load_fuxi_output(output_dir: str, init_date: str, member: int = 0) -> Option
     if not nc_files:
         raise FileNotFoundError(f"Member directory not found: {member_dir}")
     
-    datasets = []
+    def _as_dataarray(obj: Any) -> xr.DataArray:
+        # xarray may return Dataset or DataTree for some NetCDF layouts; normalize to DataArray.
+        if isinstance(obj, xr.DataArray):
+            return obj
+
+        # DataTree-like: try to extract a Dataset from the root node.
+        if hasattr(obj, "to_dataset"):
+            obj = obj.to_dataset()  # type: ignore[assignment]
+
+        if isinstance(obj, xr.Dataset):
+            if len(obj.data_vars) == 1:
+                var_name = next(iter(obj.data_vars))
+                return cast(xr.DataArray, obj[var_name])
+            raise ValueError(f"Expected a single data variable in {nc_file}, found: {list(obj.data_vars)}")
+
+        raise TypeError(f"Unsupported xarray object type: {type(obj)!r}")
+
+    datasets: List[xr.DataArray] = []
     for nc_file in nc_files:
-        ds = xr.open_dataarray(nc_file)
+        opened = xr.open_dataset(nc_file, engine="netcdf4")
+        ds = _as_dataarray(opened)
         # Extract lead_time from filename if not in data
         if 'lead_time' not in ds.dims:
             # Parse lead time from filename like member00_lead01.nc
@@ -76,7 +94,7 @@ def load_fuxi_output(output_dir: str, init_date: str, member: int = 0) -> Option
                 pass
         datasets.append(ds)
     
-    combined = xr.concat(datasets, dim='lead_time')
+    combined: xr.DataArray = xr.concat(datasets, dim='lead_time')
     return combined
 
 
@@ -85,7 +103,7 @@ def extract_station_forecast(
     lat: float,
     lon: float,
     init_date: str,
-    variables: List[str] = None
+    variables: Optional[List[str]] = None
 ) -> pd.DataFrame:
     """
     Extract forecast data for a specific station location.
@@ -124,7 +142,9 @@ def extract_station_forecast(
         
         for var in variables:
             if var in station_data.channel.values:
-                value = float(station_data.sel(lead_time=lead_time, channel=var).values)
+                arr = station_data.sel(lead_time=lead_time, channel=var).values
+                # Ensure we extract a scalar value
+                value = float(arr.item() if arr.size == 1 else arr.flat[0])
                 row[var] = value
         
         # Calculate derived values

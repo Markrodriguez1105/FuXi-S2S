@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from config import settings
+from fuxis2s_model.config import settings
 
 
 async def run_full_pipeline(

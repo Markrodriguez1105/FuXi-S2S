@@ -53,7 +53,7 @@ async def gpu_check():
 async def model_check():
     """Check if ONNX model is loaded."""
     import os
-    from config import settings
+    from fuxis2s_model.config import settings
     
     model_path = settings.model_path
     model_exists = os.path.exists(model_path)
@@ -79,7 +79,7 @@ async def model_check():
 async def readiness_check():
     """Full readiness check."""
     import os
-    from config import settings
+    from fuxis2s_model.config import settings
     
     checks = {
         "model": os.path.exists(settings.model_path),

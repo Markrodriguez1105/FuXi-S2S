@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from config import settings
+from fuxis2s_model.config import settings
 from .data_util import make_input, print_dataarray
 
 

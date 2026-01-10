@@ -10,7 +10,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
-from config import settings
+from fuxis2s_model.config import settings
 
 router = APIRouter(prefix="/pipeline")
 

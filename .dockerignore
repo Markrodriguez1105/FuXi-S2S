@@ -85,11 +85,15 @@ temp/
 Thumbs.db
 desktop.ini
 
-# Large data files that should be mounted as volumes
-# (Uncomment if you want to exclude them from build context)
-# data/
-# output/
-# model/*.onnx
+# Large runtime files that should be mounted as volumes
+# These are intentionally excluded to keep images small.
+data/
+output/
+model/
+
+# Common large scientific/model artifacts
+**/*.nc
+**/*.onnx
 
 # Comparison results
 compare/result/
